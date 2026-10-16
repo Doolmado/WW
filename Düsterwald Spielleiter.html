@@ -1,0 +1,1332 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Düsterwald Spielleiter</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Pirata+One&display=swap">
+<style>
+/* Aufbau: dunkles Kopfband, darunter eine feste Statusleiste (Phase, Lebende, Rückgängig).
+   Breit: Spielerliste links, geführter Ablauf + Merker + Verlauf rechts.
+   Schmal: eine Spalte, zuerst der geführte Ablauf, dann die Spieler als Karten. */
+:root{
+  --bg:#EEF0E8; --surface:#FBFBF7; --field:#FFFFFF;
+  --ink:#1B211E; --muted:#56605B; --line:#CDD1C4; --line-strong:#8B9489;
+  --band:#1F2B27; --band-ink:#F1ECDD; --gold:#E9C877; --blood:#A3301F;
+  --prot-bg:#2F5D46; --prot-fg:#FBFBF7; --dead-bg:#A3301F; --dead-fg:#FBFBF7;
+  --btn-bg:#1F2B27; --btn-fg:#F1ECDD; --hint-bg:#EBE6CF; --focus:#1F5FBF;
+  --ok-bg:#DCEADB; --ok-ink:#1D3F2D; --warn-bg:#F5E6B8; --warn-ink:#4A3708;
+  --bad-bg:#F4DAD4; --bad-ink:#6B1A10; --info-bg:#E6EAE0; --info-ink:#1B211E;
+  --h-night-bg:#1F2B27; --h-night-fg:#F1ECDD; --h-day-bg:#E9C877; --h-day-fg:#1B211E;
+  --display:'Pirata One','UnifrakturCook',Georgia,serif;
+  --body:'Alegreya',Georgia,'Times New Roman',serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101513; --surface:#18201D; --field:#0E1311;
+    --ink:#ECE8DB; --muted:#9BA7A1; --line:#2E3A35; --line-strong:#5E6E66;
+    --band:#0B100E; --band-ink:#F1ECDD; --gold:#E9C877; --blood:#E87A66;
+    --prot-bg:#6FC29B; --prot-fg:#0B100E; --dead-bg:#E87A66; --dead-fg:#1A0E0B;
+    --btn-bg:#E9C877; --btn-fg:#10150F; --hint-bg:#262E27; --focus:#8FB8FF;
+    --ok-bg:#1E3A2D; --ok-ink:#BFE5D0; --warn-bg:#3A3317; --warn-ink:#F0DC9B;
+    --bad-bg:#43211B; --bad-ink:#F6C9C0; --info-bg:#222C28; --info-ink:#ECE8DB;
+    --h-night-bg:#0B100E; --h-night-fg:#F1ECDD;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101513; --surface:#18201D; --field:#0E1311;
+  --ink:#ECE8DB; --muted:#9BA7A1; --line:#2E3A35; --line-strong:#5E6E66;
+  --band:#0B100E; --band-ink:#F1ECDD; --gold:#E9C877; --blood:#E87A66;
+  --prot-bg:#6FC29B; --prot-fg:#0B100E; --dead-bg:#E87A66; --dead-fg:#1A0E0B;
+  --btn-bg:#E9C877; --btn-fg:#10150F; --hint-bg:#262E27; --focus:#8FB8FF;
+  --ok-bg:#1E3A2D; --ok-ink:#BFE5D0; --warn-bg:#3A3317; --warn-ink:#F0DC9B;
+  --bad-bg:#43211B; --bad-ink:#F6C9C0; --info-bg:#222C28; --info-ink:#ECE8DB;
+  --h-night-bg:#0B100E; --h-night-fg:#F1ECDD;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 var(--body);-webkit-text-size-adjust:100%}
+h1,h2,h3,p,ul,ol,dl,dd{margin:0}
+button,input,select{font:inherit;color:inherit}
+svg{flex:none}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1280px;margin-inline:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.muted{color:var(--muted)}
+.small{font-size:15px}
+
+/* Kopfband */
+.hero{position:relative;background:var(--band);color:var(--band-ink);overflow:hidden}
+.hero-in{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:18px 38px}
+.hero-in>div{min-width:0}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.hero h1{font:400 clamp(30px,7vw,48px)/1.05 var(--display);margin-top:2px;text-wrap:balance}
+.sub{margin-top:4px;font-size:16px;color:#C9CEC2}
+.moon-big{flex:none;width:52px;height:52px}
+.firs{position:absolute;left:0;bottom:-1px;width:100%;height:24px;display:block}
+
+/* Statusleiste */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:2px solid var(--ink)}
+.bar-in{display:flex;align-items:center;flex-wrap:wrap;gap:6px 16px;padding-block:6px}
+.phasebox{display:flex;align-items:center;gap:10px;padding-right:16px;border-right:1.5px solid var(--line-strong);color:var(--blood)}
+.phasebox strong{font:400 30px/1 var(--display)}
+.stats{display:flex;gap:6px 18px}
+.stat{display:flex;flex-direction:column;line-height:1.1}
+.stat dt{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat dd{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat.wolf dd{color:var(--blood)}
+.bar-actions{margin-left:auto;display:flex;gap:8px}
+.ibtn{min-height:44px;min-width:44px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1.5px solid var(--line-strong);background:transparent;border-radius:4px;font-weight:700;font-size:16px;cursor:pointer}
+.ibtn[disabled]{opacity:.4;cursor:default}
+
+/* Raster */
+.main{display:grid;gap:16px;padding-block:16px 24px;grid-template-columns:minmax(0,1fr);
+  grid-template-areas:"banner" "phase" "players" "merker" "log" "set"}
+.side{display:contents}
+.main>*,.side>*{min-width:0}
+#banner{grid-area:banner}.phase{grid-area:phase}.c-players{grid-area:players}.c-merker{grid-area:merker}.c-log{grid-area:log}.c-set{grid-area:set}
+@media (min-width:1060px){
+  .main{grid-template-columns:minmax(0,1fr) 440px;grid-template-areas:"banner banner" "players phase" "players side";gap:16px 24px;align-items:start}
+  .side{grid-area:side;display:flex;flex-direction:column;gap:16px}
+}
+.card{background:var(--surface);border:1.5px solid var(--line);border-radius:6px;padding:16px;max-width:100%}
+.chead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.ch{font:400 28px/1.1 var(--display)}
+.pill{font-size:14px;font-weight:700;padding:3px 10px;border:1.5px solid var(--ink);border-radius:99px;white-space:nowrap}
+.note-t{font-size:15px;color:var(--muted);margin-bottom:12px;max-width:64ch}
+
+/* Spielende-Banner */
+.banner{background:var(--gold);color:#1B211E;border:2px solid var(--ink);border-radius:6px;padding:16px;display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px}
+.banner h2{font:400 32px/1.1 var(--display)}
+.banner p{font-size:18px;font-weight:700;flex:1 1 260px}
+.banner .btn{background:#1B211E;color:#F1ECDD;border-color:#1B211E}
+.banner .btn.ghost{background:transparent;color:#1B211E;border-color:#1B211E}
+
+/* Buttons */
+.btn{min-height:48px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--btn-bg);background:var(--btn-bg);color:var(--btn-fg);font-weight:700;font-size:17px;border-radius:4px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line-strong)}
+.btn.danger{background:var(--dead-bg);color:var(--dead-fg);border-color:var(--dead-bg)}
+.btn[disabled]{opacity:.45;cursor:default}
+.nav{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.nav .btn:last-child{flex:1 1 180px}
+.row-btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+
+/* Phasenkarte */
+.phase{padding:0;overflow:hidden;scroll-margin-top:76px}
+.pband{display:flex;align-items:center;gap:12px;padding:12px 16px}
+.pband h2{font:400 30px/1.05 var(--display)}
+.pband p{font-size:15px;opacity:.9}
+.band-night{background:var(--h-night-bg);color:var(--h-night-fg)}
+.band-day{background:var(--h-day-bg);color:var(--h-day-fg)}
+.band-setup{background:var(--hint-bg);color:var(--ink);border-bottom:1.5px solid var(--line)}
+.pbody{padding:16px;display:flex;flex-direction:column;gap:12px}
+.lead{font-size:19px;font-weight:700}
+.stepper{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.stp{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700;padding:3px 10px;border:1.5px solid var(--line-strong);border-radius:99px;color:var(--muted)}
+.stp.done{color:var(--ink)}
+.stp.cur{background:var(--btn-bg);border-color:var(--btn-bg);color:var(--btn-fg)}
+.stt{font:400 26px/1.1 var(--display)}
+.sec{display:flex;align-items:center;gap:10px;font:400 24px/1.1 var(--display);padding-top:6px;border-top:1.5px solid var(--line)}
+.sec:first-child{border-top:0;padding-top:0}
+.secn{width:30px;height:30px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;font:400 18px/1 var(--display);padding-top:2px}
+
+/* Vorlesetext */
+.script{background:var(--hint-bg);border:1px solid var(--line);border-radius:6px;padding:12px 16px 8px}
+.script .lbl{display:block;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.say{font-size:21px;line-height:1.4;font-style:italic;margin-bottom:8px}
+.do{font-size:16px;color:var(--muted);margin-bottom:8px;display:flex;gap:8px}
+.do::before{content:"→";flex:none}
+
+/* Hinweise */
+.note{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:4px;font-size:17px}
+.note svg{margin-top:3px}
+.note.ok{background:var(--ok-bg);color:var(--ok-ink)}
+.note.warn{background:var(--warn-bg);color:var(--warn-ink)}
+.note.dead{background:var(--bad-bg);color:var(--bad-ink)}
+.note.info{background:var(--info-bg);color:var(--info-ink)}
+.notes{display:flex;flex-direction:column;gap:8px}
+.reveal{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px;border:2px solid var(--ink);border-radius:6px;text-align:center}
+.reveal strong{font:400 34px/1.1 var(--display)}
+.reveal.wolf{border-color:var(--blood);color:var(--blood)}
+.reveal .lbl{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* Formularelemente */
+.field{display:flex;flex-direction:column;gap:4px}
+.flabel{font-size:15px;font-weight:700}
+input[type="text"],input[type="number"],select{width:100%;min-width:0;height:44px;padding:0 10px;background:var(--field);color:var(--ink);border:1.5px solid var(--line-strong);border-radius:4px;font-size:17px}
+input::placeholder{color:var(--muted);opacity:.8}
+.pair{display:flex;align-items:center;gap:8px}
+.pair>span{font-weight:700}
+.check{position:relative;display:flex;align-items:flex-start;gap:12px;cursor:pointer;min-height:44px;padding:6px 0}
+.check input{position:absolute;opacity:0;width:1px;height:1px}
+.box{flex:none;width:28px;height:28px;border:2px solid var(--ink);border-radius:4px;background:var(--field);display:grid;place-items:center}
+.box::after{content:"";width:7px;height:13px;border:solid var(--prot-fg);border-width:0 3px 3px 0;transform:translate(0,-1px) rotate(45deg);opacity:0}
+.check input:checked + .box{background:var(--prot-bg);border-color:var(--prot-bg)}
+.check input:checked + .box::after{opacity:1}
+.check input:focus-visible + .box{outline:3px solid var(--focus);outline-offset:2px}
+.check.off{cursor:default}
+.check.off .ctext{opacity:.6}
+.ctext{padding-top:3px;min-width:0}
+.csub{display:block;font-size:14px;color:var(--muted)}
+.checks{display:flex;flex-direction:column}
+.switch{display:flex;align-items:flex-start;gap:12px;cursor:pointer;min-height:44px}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.sw{flex:none;position:relative;width:52px;height:30px;border-radius:99px;border:2px solid var(--ink);background:var(--field);margin-top:2px}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--ink)}
+.switch input:checked + .sw{background:var(--prot-bg);border-color:var(--prot-bg)}
+.switch input:checked + .sw::after{left:25px;background:var(--prot-fg)}
+.switch input:focus-visible + .sw{outline:3px solid var(--focus);outline-offset:2px}
+.swtext{display:flex;flex-direction:column;min-width:0}
+.swtext span{font-size:15px;color:var(--muted)}
+.fields{display:flex;flex-direction:column;gap:12px;margin-top:8px}
+
+/* Timer */
+.timer{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}
+.time{font:400 44px/1 var(--display);font-variant-numeric:tabular-nums;min-width:120px}
+.time.low{color:var(--blood)}
+
+/* Abstimmung */
+.vinfo{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:16px}
+.vinfo b{font-variant-numeric:tabular-nums}
+.pchips{display:flex;flex-wrap:wrap;gap:6px}
+.pchip{min-height:44px;padding:0 12px;border:1.5px solid var(--line-strong);background:var(--field);border-radius:4px;font-weight:700;font-size:16px;cursor:pointer}
+.pchip[aria-pressed="true"]{background:var(--btn-bg);color:var(--btn-fg);border-color:var(--btn-bg)}
+.vlist{display:flex;flex-direction:column}
+.vrow{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1.5px solid var(--line)}
+.vname{flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere}
+.stp2{display:flex;align-items:center;gap:6px}
+.vnum{min-width:34px;text-align:center;font:400 28px/1 var(--display);font-variant-numeric:tabular-nums}
+.sbtn{width:44px;height:44px;display:inline-grid;place-items:center;border:1.5px solid var(--line-strong);background:var(--field);border-radius:4px;cursor:pointer}
+.sbtn[disabled]{opacity:.4;cursor:default}
+
+/* Spieler */
+.c-players{container-type:inline-size;padding:16px 0 12px}
+.c-players .chead,.c-players .note-t{padding-inline:16px}
+.phd{display:none}
+.plist{list-style:none;padding:0}
+.prow{display:grid;grid-template-columns:32px minmax(0,1fr) auto auto;
+  grid-template-areas:"nr role dead del" "name name name name" "prot prot prot prot" "tags tags tags tags";
+  gap:8px 10px;align-items:center;padding:12px;border-top:1.5px solid var(--line)}
+.nr{grid-area:nr;text-align:center;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.rolecell{grid-area:role;display:flex;align-items:center;gap:8px;min-width:0}
+.role{flex:1}
+.prow.is-wolf .role{color:var(--blood);font-weight:700}
+.moon{display:inline-flex;flex:none;color:var(--muted)}
+.name{grid-area:name}
+.dead{grid-area:dead;min-width:64px;height:44px;padding:0 12px;background:var(--field);border:1.5px solid var(--line-strong);border-radius:4px;font-weight:700;cursor:pointer}
+.dead[aria-pressed="true"]{background:var(--dead-bg);color:var(--dead-fg);border-color:var(--dead-bg)}
+.del{grid-area:del;width:44px;height:44px;display:grid;place-items:center;background:transparent;border:1.5px solid var(--line);border-radius:4px;color:var(--muted);cursor:pointer}
+.prow.is-dead .role,.prow.is-dead .name{opacity:.55}
+.prow.is-dead .name{text-decoration:line-through}
+.prot{grid-area:prot;display:flex;flex-direction:column;gap:4px;min-width:0}
+.plabel{font-size:14px;color:var(--muted)}
+.chips{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;width:100%}
+.chip{width:100%;height:40px;min-width:0;padding:0;background:var(--field);color:var(--muted);border:1.5px solid var(--line-strong);border-radius:4px;font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;cursor:pointer}
+.chip.now{color:var(--ink);border-color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--prot-bg);color:var(--prot-fg);border-color:var(--prot-bg)}
+.chip.warn{outline:3px solid var(--blood);outline-offset:1px}
+.ptags{grid-area:tags;display:flex;flex-wrap:wrap;gap:6px}
+.ptags:empty{display:none}
+.ptag{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:2px 8px;border:1px solid var(--line-strong);border-radius:99px;color:var(--muted)}
+.addbox{padding:12px 16px 0;border-top:1.5px solid var(--line)}
+.addrow{display:flex;flex-wrap:wrap;gap:10px}
+.addrow select{flex:1 1 180px;width:auto}
+.custom{margin-top:10px}
+.custom summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+.custom .fields{padding-bottom:8px}
+
+@container (min-width:760px){
+  .phd{display:grid;align-items:end;padding:6px 16px;border-top:1.5px solid var(--ink);background:var(--hint-bg);
+    font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .phd,.prow{grid-template-columns:32px 176px minmax(100px,1fr) 64px 300px 40px;gap:10px}
+  .prow{grid-template-areas:"nr role name dead prot del" ". tags tags tags tags tags";padding-block:6px 4px;row-gap:2px}
+  .prot{display:block}
+  .plabel{display:none}
+  .chips{grid-template-columns:repeat(8,34px);width:300px}
+  .chip{height:34px}
+  .role,.name,.dead{height:38px}
+  .del{width:36px;height:36px}
+  .phd .nums{display:flex;gap:4px;font-size:13px}
+  .phd .nums span{width:34px;text-align:center;padding-bottom:2px;border-bottom:3px solid transparent}
+  .phd .nums span.now{color:var(--ink);border-bottom-color:var(--blood)}
+  .phd>span:first-child{text-align:center}
+}
+
+/* Verlauf */
+.loglist{list-style:none;padding:0;max-height:340px;overflow:auto;display:flex;flex-direction:column}
+.loglist li{display:flex;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:16px}
+.loglist li:first-child{border-top:0}
+.ll{flex:none;width:44px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.loglist li.death{color:var(--blood)}
+
+/* Dialog */
+dialog{border:2px solid var(--ink);border-radius:8px;padding:20px;max-width:480px;width:calc(100% - 32px);background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:rgba(8,12,10,.65)}
+.dt{font:400 30px/1.1 var(--display);margin-bottom:8px}
+.dtext{margin-bottom:12px}
+.dch{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
+.choice{display:flex;flex-direction:column;align-items:flex-start;gap:0;min-height:48px;padding:6px 14px;border:1.5px solid var(--line-strong);background:var(--field);border-radius:4px;cursor:pointer;text-align:left;font-size:17px;font-weight:700}
+.choice span{font-size:14px;font-weight:400;color:var(--muted)}
+.dact{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:14px}
+
+.foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-block:8px 32px}
+.foot p{font-size:14px;color:var(--muted);max-width:62ch}
+@media (prefers-reduced-motion:no-preference){.chip,.dead,.box,.btn,.sw,.sw::after{transition:background-color .12s,border-color .12s,left .12s}}
+</style>
+
+<header class="hero">
+  <div class="wrap hero-in">
+    <div>
+      <p class="eyebrow">Werwolf von Düsterwald</p>
+      <h1>Spielleiter</h1>
+      <p class="sub">Geführter Ablauf mit Vorlesetexten und automatischer Auswertung</p>
+    </div>
+    <svg class="moon-big" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="22" fill="#E9C877"/><circle cx="38" cy="22" r="19" fill="var(--band)"/></svg>
+  </div>
+  <svg class="firs" aria-hidden="true" preserveAspectRatio="none"><defs><pattern id="firs" width="56" height="24" patternUnits="userSpaceOnUse"><path style="fill:var(--bg)" d="M0 24 L11 6 L22 24 Z M18 24 L36 0 L54 24 Z M44 24 L50 12 L56 24 Z"/></pattern></defs><rect width="100%" height="24" fill="url(#firs)"/></svg>
+</header>
+
+<div class="bar">
+  <div class="wrap bar-in">
+    <div class="phasebox"><span id="phIcon"></span><strong id="phName">Vorbereitung</strong></div>
+    <dl class="stats">
+      <div class="stat"><dt>Lebende</dt><dd id="cAlive">16</dd></div>
+      <div class="stat wolf"><dt>Werwölfe</dt><dd id="cWolf">4</dd></div>
+      <div class="stat"><dt>Dorf</dt><dd id="cVillage">12</dd></div>
+    </dl>
+    <div class="bar-actions">
+      <button class="ibtn" id="undo" type="button" aria-label="Letzte Aktion rückgängig machen"><span id="undoIco"></span><span class="undo-t">Rückgängig</span></button>
+      <button class="ibtn" id="theme" type="button" aria-label="Hell oder dunkel umschalten"></button>
+    </div>
+  </div>
+</div>
+
+<main class="wrap main">
+  <div id="banner" class="banner" role="status" hidden></div>
+
+  <section class="card phase" id="phaseCard" aria-label="Geführter Ablauf"></section>
+
+  <div class="side">
+    <section class="card c-merker" aria-labelledby="h-mer">
+      <h2 class="ch" id="h-mer">Merker</h2>
+      <p class="note-t">Wird automatisch gepflegt. Hier kannst du Werte von Hand korrigieren.</p>
+      <div class="checks" id="merkerList"></div>
+      <div class="fields">
+        <div class="field">
+          <span class="flabel" id="l-vl">Verliebte</span>
+          <div class="pair"><select id="loverA" aria-labelledby="l-vl"></select><span aria-hidden="true">&amp;</span><select id="loverB" aria-labelledby="l-vl"></select></div>
+        </div>
+        <div class="field">
+          <label class="flabel" for="knightSel">Vom Ritter getroffener Werwolf (stirbt nächste Nacht)</label>
+          <select id="knightSel"></select>
+        </div>
+      </div>
+    </section>
+
+    <section class="card c-log" aria-labelledby="h-log">
+      <h2 class="ch" id="h-log">Spielverlauf</h2>
+      <p class="note-t" id="logEmpty">Noch nichts passiert.</p>
+      <ol class="loglist" id="logList"></ol>
+    </section>
+
+    <section class="card c-set" aria-labelledby="h-set">
+      <h2 class="ch" id="h-set">Regeln &amp; Spiel</h2>
+      <label class="switch"><input type="checkbox" id="revealCb"><span class="sw"></span><span class="swtext"><strong>Rollen beim Tod aufdecken</strong><span id="revealHint"></span></span></label>
+      <div class="row-btns">
+        <button class="btn ghost" id="newRound" type="button">Neue Runde (Rollen behalten)</button>
+        <button class="btn ghost" id="resetAll" type="button">Alles zurücksetzen</button>
+      </div>
+    </section>
+  </div>
+
+  <section class="card c-players" aria-labelledby="h-pl">
+    <div class="chead"><h2 class="ch" id="h-pl">Spieler</h2><span class="pill" id="plCount">16</span></div>
+    <p class="note-t">Pro Nacht gilt nur ein Schutz. Dieselbe Person zwei Nächte hintereinander wird rot umrandet. Ein Mond hinter der Rolle heißt: wacht nachts auf.</p>
+    <div class="phd" aria-hidden="true"><span>Nr</span><span>Rolle</span><span>Name</span><span>Tot</span><span class="nums" id="phnums"></span><span></span></div>
+    <ul class="plist" id="plist"></ul>
+    <div class="addbox">
+      <div class="addrow"><select id="addRole" aria-label="Rolle für neuen Spieler"></select><button class="btn ghost" id="addPlayer" type="button">Spieler hinzufügen</button></div>
+      <details class="custom">
+        <summary>Eigene Rolle anlegen</summary>
+        <div class="fields">
+          <input id="cName" type="text" placeholder="Name der Rolle" maxlength="30" autocomplete="off" aria-label="Name der neuen Rolle">
+          <label class="check"><input type="checkbox" id="cWake"><span class="box"></span><span class="ctext">Wacht nachts auf (kommt vor den Werwölfen dran)</span></label>
+          <label class="check"><input type="checkbox" id="cWolf"><span class="box"></span><span class="ctext">Gehört zu den Werwölfen</span></label>
+          <button class="btn ghost" id="cAdd" type="button">Rolle anlegen und Spieler hinzufügen</button>
+        </div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <p id="sync">Der Stand wird automatisch gespeichert.</p>
+</footer>
+
+<dialog id="dlg"></dialog>
+
+<script>
+(function(){
+'use strict';
+var KEY='duesterwald-v2', HKEY='duesterwald-v2-hist', TKEY='duesterwald-theme', NIGHTS=8;
+
+var BUILTIN={
+  amor:{label:'Amor',wake:true,wolf:false},
+  seher:{label:'Seher',wake:true,wolf:false},
+  leib:{label:'Leibwächter',wake:true,wolf:false},
+  wolf:{label:'Werwolf',wake:true,wolf:true},
+  hexe:{label:'Hexe',wake:true,wolf:false},
+  jaeger:{label:'Jäger',wake:false,wolf:false},
+  alte:{label:'Der Alte',wake:false,wolf:false},
+  ritter:{label:'Rostiger Ritter',wake:false,wolf:false},
+  dorf:{label:'Dorfbewohner',wake:false,wolf:false}
+};
+var ROLE_ORDER=['amor','seher','leib','wolf','hexe','jaeger','alte','ritter','dorf'];
+var CAUSE={
+  wolves:'wurde von den Werwölfen gefressen',
+  poison:'wurde von der Hexe vergiftet',
+  knight:'ist an der Wunde des Rostigen Ritters gestorben',
+  love:'ist aus Liebeskummer gestorben',
+  hunter:'wurde vom Jäger erschossen',
+  vote:'wurde vom Dorf gehängt',
+  manual:'wurde als tot markiert'
+};
+var SHORTC={wolves:'gefressen',poison:'vergiftet',knight:'Wundinfektion',love:'Liebeskummer',hunter:'erschossen',vote:'gehängt',manual:'tot'};
+
+var ICONS={
+  moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  heart:'<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+  flask:'<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/>',
+  target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  eye:'<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+  undo:'<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>',
+  plus:'<path d="M5 12h14M12 5v14"/>',
+  minus:'<path d="M5 12h14"/>',
+  trash:'<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  next:'<path d="m9 18 6-6-6-6"/>',
+  back:'<path d="m15 18-6-6 6-6"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  xc:'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  alert:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+  play:'<path d="m6 3 14 9-14 9z"/>',
+  pause:'<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>',
+  reset:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  contrast:'<circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>'
+};
+var NS='http://www.w3.org/2000/svg';
+function ico(name,size){
+  var s=document.createElementNS(NS,'svg');
+  s.setAttribute('viewBox','0 0 24 24');s.setAttribute('width',size||18);s.setAttribute('height',size||18);
+  s.setAttribute('fill','none');s.setAttribute('stroke','currentColor');s.setAttribute('stroke-width','2');
+  s.setAttribute('stroke-linecap','round');s.setAttribute('stroke-linejoin','round');s.setAttribute('aria-hidden','true');
+  s.innerHTML=ICONS[name]||'';
+  return s;
+}
+function $(id){return document.getElementById(id);}
+function h(tag,props){
+  var e=document.createElement(tag);
+  if(props){Object.keys(props).forEach(function(k){
+    var v=props[k];
+    if(v==null||v===false)return;
+    if(k==='class')e.className=v;
+    else if(k==='text')e.textContent=v;
+    else if(k.indexOf('on')===0)e.addEventListener(k.slice(2),v);
+    else if(v===true)e.setAttribute(k,'');
+    else e.setAttribute(k,v);
+  });}
+  for(var i=2;i<arguments.length;i++)add(e,arguments[i]);
+  return e;
+}
+function add(e,c){
+  if(c==null||c===false)return;
+  if(Array.isArray(c)){c.forEach(function(x){add(e,x);});return;}
+  e.appendChild(c.nodeType?c:document.createTextNode(String(c)));
+}
+function clone(o){return JSON.parse(JSON.stringify(o));}
+
+/* ---------- Zustand ---------- */
+function defaultState(){
+  var roles=['amor','seher','leib','wolf','wolf','wolf','wolf','hexe','jaeger','alte','ritter','dorf','dorf','dorf','dorf','dorf'];
+  return {v:2,rev:0,nextId:17,custom:[],
+    players:roles.map(function(r,i){return {id:i+1,role:r,name:'',dead:false,prot:[],cause:null,diedNight:0};}),
+    phase:'setup',night:1,step:0,nd:{},day:null,lovers:[null,null],knightWolf:null,
+    potions:{heal:false,poison:false},alteHit:false,reveal:false,dismissOver:false,
+    prep:{erz:false,karten:false,kreis:false},log:[]};
+}
+function normalize(s){
+  if(!s||s.v!==2||!Array.isArray(s.players)||!s.players.length)return null;
+  var o=Object.assign(defaultState(),s);
+  o.players=s.players.map(function(p){return {id:p.id,role:String(p.role||'dorf'),name:String(p.name||'').slice(0,40),dead:!!p.dead,
+    prot:Array.isArray(p.prot)?p.prot.filter(function(n){return typeof n==='number';}):[],cause:p.cause||null,diedNight:p.diedNight||0};});
+  o.custom=Array.isArray(s.custom)?s.custom.map(function(c){return {id:String(c.id),label:String(c.label||'').slice(0,30),wake:!!c.wake,wolf:!!c.wolf};}):[];
+  o.lovers=(Array.isArray(s.lovers)&&s.lovers.length===2)?s.lovers:[null,null];
+  o.potions=Object.assign({heal:false,poison:false},s.potions);
+  o.prep=Object.assign({erz:false,karten:false,kreis:false},s.prep);
+  o.nd=Object.assign({},s.nd);
+  o.log=Array.isArray(s.log)?s.log.slice(-200):[];
+  if(['setup','night','day'].indexOf(o.phase)<0)o.phase='setup';
+  var mx=0;o.players.forEach(function(p){if(p.id>mx)mx=p.id;});
+  o.nextId=Math.max(o.nextId||0,mx+1);
+  return o;
+}
+function loadLocal(){try{var t=localStorage.getItem(KEY);return t?normalize(JSON.parse(t)):null;}catch(e){return null;}}
+function persistLocal(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+function loadHist(){try{var t=localStorage.getItem(HKEY);var a=t?JSON.parse(t):[];return Array.isArray(a)?a:[];}catch(e){return [];}}
+function saveHist(){try{localStorage.setItem(HKEY,JSON.stringify(hist));}catch(e){}}
+
+var state=loadLocal()||defaultState();
+var hist=loadHist();
+var ref=null,remoteTimer=null,busy=false,collecting=null;
+
+function snap(){hist.push(JSON.stringify(state));if(hist.length>30)hist.shift();saveHist();}
+function setSync(mode){
+  $('sync').textContent=mode==='db'
+    ?'Der Stand wird automatisch gespeichert und zwischen deinen Geräten abgeglichen.'
+    :'Der Stand wird in diesem Browser gespeichert.';
+}
+function scheduleRemote(){
+  if(!ref)return;
+  clearTimeout(remoteTimer);
+  remoteTimer=setTimeout(function(){
+    ref.set(clone(state)).then(function(){setSync('db');}).catch(function(){setSync('local');});
+  },300);
+}
+function commit(){state.rev=Date.now();persistLocal();scheduleRemote();render();}
+function undo(){
+  if(busy||!hist.length)return;
+  var s=normalize(JSON.parse(hist.pop()));
+  saveHist();
+  if(!s)return;
+  state=s;commit();
+}
+
+/* ---------- Hilfsfunktionen ---------- */
+function def(r){
+  if(BUILTIN[r])return BUILTIN[r];
+  for(var i=0;i<state.custom.length;i++)if(state.custom[i].id===r)return state.custom[i];
+  return {label:r,wake:false,wolf:false};
+}
+function byId(id){if(id==null)return null;for(var i=0;i<state.players.length;i++)if(state.players[i].id===id)return state.players[i];return null;}
+function numOf(p){return state.players.indexOf(p)+1;}
+function isWolf(p){return !!def(p.role).wolf;}
+function short(p){return p.name.trim()||('Spieler '+numOf(p));}
+function full(p){return short(p)+' ('+def(p.role).label+')';}
+function optLabel(p){return numOf(p)+'. '+(p.name.trim()||'ohne Namen')+' – '+def(p.role).label+(p.dead?' (tot)':'');}
+function alive(){return state.players.filter(function(p){return !p.dead;});}
+function ofRole(r){return state.players.filter(function(p){return p.role===r;});}
+function roleGone(r){var a=ofRole(r);return a.length>0&&a.every(function(p){return p.dead;});}
+function joinDe(a){return a.length>1?a.slice(0,-1).join(', ')+' und '+a[a.length-1]:(a[0]||'');}
+function log(text,kind){
+  state.log.push({n:state.night,ph:state.phase,k:kind||'',t:text});
+  if(state.log.length>200)state.log.shift();
+}
+function allRoleIds(){return ROLE_ORDER.concat(state.custom.map(function(c){return c.id;}));}
+
+/* ---------- Dialoge ---------- */
+function dlg(build,cancelVal){
+  return new Promise(function(res){
+    var d=$('dlg');
+    if(d.open)d.close();
+    d.replaceChildren();
+    function done(v){d.removeEventListener('cancel',onCancel);if(d.open)d.close();res(v);}
+    function onCancel(e){e.preventDefault();done(cancelVal);}
+    d.addEventListener('cancel',onCancel);
+    build(d,done);
+    d.showModal();
+  });
+}
+function notice(title,text,btn){
+  return dlg(function(d,done){
+    d.append(h('h2',{class:'dt',text:title}),h('p',{class:'dtext',text:text}),
+      h('div',{class:'dact'},h('button',{class:'btn',type:'button',onclick:function(){done(true);}},btn||'Verstanden')));
+  },true);
+}
+function choose(title,text,items,noneLabel){
+  return dlg(function(d,done){
+    var list=h('div',{class:'dch'});
+    items.forEach(function(it){
+      list.append(h('button',{class:'choice',type:'button',onclick:function(){done(it.value);}},it.label,it.sub?h('span',null,it.sub):null));
+    });
+    d.append(h('h2',{class:'dt',text:title}),h('p',{class:'dtext',text:text}),list,
+      h('div',{class:'dact'},h('button',{class:'btn ghost',type:'button',onclick:function(){done(null);}},noneLabel||'Abbrechen')));
+  },null);
+}
+function confirmAsk(title,text,okLabel,danger){
+  return dlg(function(d,done){
+    d.append(h('h2',{class:'dt',text:title}),h('p',{class:'dtext',text:text}),
+      h('div',{class:'dact'},
+        h('button',{class:'btn ghost',type:'button',onclick:function(){done(false);}},'Abbrechen'),
+        h('button',{class:'btn'+(danger?' danger':''),type:'button',onclick:function(){done(true);}},okLabel||'OK')));
+  },false);
+}
+function choiceOf(p){return {value:p.id,label:numOf(p)+'. '+short(p),sub:def(p.role).label};}
+
+/* ---------- Tod und Auslöser ---------- */
+async function kill(id,cause){
+  var p=byId(id);
+  if(!p||p.dead)return false;
+  p.dead=true;p.cause=cause;p.diedNight=state.night;
+  log(full(p)+' '+CAUSE[cause]+'.','death');
+  if(collecting)collecting.push({id:id,cause:cause});
+  commit();
+  if(cause==='wolves'&&p.role==='ritter')await knightTrigger(p);
+  await loversTrigger(p);
+  if(p.role==='jaeger')await hunterTrigger(p);
+  return true;
+}
+async function knightTrigger(p){
+  var wolves=alive().filter(isWolf);
+  if(!wolves.length)return;
+  var id;
+  if(wolves.length===1){
+    id=wolves[0].id;
+    await notice('Der Rostige Ritter wurde gefressen',full(wolves[0])+' ist der einzige lebende Werwolf. Er stirbt in der nächsten Nacht an der Wunde.');
+  }else{
+    id=await choose('Der Rostige Ritter wurde gefressen','Welcher Werwolf sitzt links vom Ritter? Er stirbt in der nächsten Nacht.',wolves.map(choiceOf),'Keiner, überspringen');
+  }
+  if(id!=null&&byId(id)){state.knightWolf=id;log('Rostiger Ritter: '+full(byId(id))+' stirbt in der nächsten Nacht.','info');commit();}
+}
+async function loversTrigger(p){
+  var l=state.lovers;
+  if(l.indexOf(p.id)<0)return;
+  var q=byId(l[0]===p.id?l[1]:l[0]);
+  if(!q||q.dead)return;
+  await notice('Liebeskummer',short(q)+' stirbt aus Liebeskummer, weil '+short(p)+' gestorben ist.');
+  await kill(q.id,'love');
+}
+async function hunterTrigger(p){
+  var targets=alive();
+  if(!targets.length)return;
+  var id=await choose('Der Jäger ist gestorben',short(p)+' schießt sofort auf einen Spieler. Wen trifft der Schuss?',targets.map(choiceOf),'Niemanden erschießen');
+  if(id!=null&&byId(id)&&!byId(id).dead)await kill(id,'hunter');
+}
+
+/* ---------- Spielende ---------- */
+function evalOver(){
+  if(state.phase==='setup'||!state.players.length)return null;
+  var al=alive(),wolves=al.filter(isWolf),vill=al.filter(function(p){return !isWolf(p);});
+  var a=byId(state.lovers[0]),b=byId(state.lovers[1]);
+  if(a&&b&&!a.dead&&!b.dead&&isWolf(a)!==isWolf(b)&&al.length===2)
+    return {title:'Das verliebte Paar gewinnt',text:'Liebe besiegt alles: Werwolf und Dorfbewohner haben als Letzte überlebt.'};
+  if(!al.length)return {title:'Niemand überlebt',text:'Alle Spieler sind tot.'};
+  if(!wolves.length)return {title:'Das Dorf gewinnt',text:'Alle Werwölfe sind tot.'};
+  var lethal=vill.some(function(p){return p.role==='jaeger'||p.role==='ritter'||(p.role==='hexe'&&!state.potions.poison);});
+  if(wolves.length>vill.length||(wolves.length===vill.length&&!lethal))
+    return {title:'Die Werwölfe gewinnen',text:'Die Werwölfe haben die Übermacht und das Dorf hat keine tödliche Gegenwehr mehr.'};
+  return null;
+}
+
+/* ---------- Spielablauf ---------- */
+function startGame(){
+  snap();state.phase='night';state.night=1;state.step=0;state.nd={};state.day=null;
+  log('Spiel gestartet: '+state.players.length+' Spieler.','phase');
+  commit();focusPhase();
+}
+function setGuard(id){
+  var n=state.night;
+  state.players.forEach(function(p){var k=p.prot.indexOf(n);if(k>-1)p.prot.splice(k,1);});
+  var p=byId(id);if(p)p.prot.push(n);
+  commit();
+}
+function setProt(p,n){
+  var k=p.prot.indexOf(n);
+  if(k>-1)p.prot.splice(k,1);
+  else{state.players.forEach(function(o){var j=o.prot.indexOf(n);if(j>-1)o.prot.splice(j,1);});p.prot.push(n);}
+  commit();
+}
+function stepList(){
+  var s=[{k:'start',t:'Nacht'}],n=state.night;
+  if(n===1&&ofRole('amor').length){s.push({k:'amor',t:'Amor'});s.push({k:'lovers',t:'Verliebte'});}
+  if(ofRole('seher').length)s.push({k:'seher',t:'Seher'});
+  if(ofRole('leib').length)s.push({k:'leib',t:'Leibwächter'});
+  state.custom.forEach(function(c){if(c.wake&&ofRole(c.id).length)s.push({k:'custom',t:c.label,role:c.id});});
+  s.push({k:'wolf',t:'Werwölfe'});
+  if(ofRole('hexe').length)s.push({k:'hexe',t:'Hexe'});
+  return s;
+}
+function stepSkipped(st){
+  if(!state.reveal)return false;
+  if(st.k==='seher')return roleGone('seher');
+  if(st.k==='leib')return roleGone('leib');
+  if(st.k==='hexe')return roleGone('hexe');
+  if(st.k==='custom')return roleGone(st.role);
+  return false;
+}
+function visibleSteps(){
+  var all=stepList();
+  return {steps:all.filter(function(s){return !stepSkipped(s);}),skipped:all.filter(stepSkipped)};
+}
+
+async function finishNight(){
+  if(busy)return;
+  busy=true;
+  try{
+    snap();
+    var n=state.night,nd=state.nd,report=[];
+    collecting=[];
+    var kw=byId(state.knightWolf);
+    state.knightWolf=null;
+    if(kw&&!kw.dead)await kill(kw.id,'knight');
+    var pz=byId(nd.poison);
+    if(nd.poisonOn&&pz&&!state.potions.poison){
+      state.potions.poison=true;
+      log('Hexe vergiftet '+full(pz)+'.','info');
+      if(pz.dead)report.push({kind:'info',text:full(pz)+' war schon tot, der Gifttrank ist trotzdem verbraucht.'});
+      else await kill(pz.id,'poison');
+    }
+    var v=byId(nd.wolf);
+    if(!v)report.push({kind:'ok',text:'Die Werwölfe haben kein Opfer gewählt.'});
+    else if(v.dead)report.push({kind:'info',text:full(v)+' war bereits tot.'});
+    else if(v.prot.indexOf(n)>-1){report.push({kind:'ok',text:full(v)+' wurde vom Leibwächter beschützt.'});log('Angriff auf '+full(v)+' vom Leibwächter abgewehrt.','info');}
+    else if(nd.heal&&nd.healFor===v.id&&!state.potions.heal){state.potions.heal=true;report.push({kind:'ok',text:full(v)+' wurde von der Hexe geheilt.'});log('Hexe heilt '+full(v)+'.','info');}
+    else if(v.role==='alte'&&!state.alteHit){state.alteHit=true;report.push({kind:'ok',text:full(v)+' überlebt den Angriff dank des Extraleben.'});log('Der Alte überlebt den ersten Angriff.','info');}
+    else await kill(v.id,'wolves');
+    var deaths=collecting;
+    collecting=null;
+    state.phase='day';
+    state.day={deaths:deaths,report:report,nominees:[],runoff:false,evaluated:false,result:null};
+    log(deaths.length?'Nacht '+n+' endet mit '+deaths.length+(deaths.length===1?' Toten.':' Toten.'):'Nacht '+n+' endet ohne Tote.','phase');
+    timerReset();
+    commit();
+    focusPhase();
+  }finally{busy=false;collecting=null;render();}
+}
+
+function toggleNominee(id){
+  var d=state.day,i=-1;
+  d.nominees.forEach(function(x,k){if(x.id===id)i=k;});
+  if(i>-1)d.nominees.splice(i,1);else d.nominees.push({id:id,votes:0});
+  commit();
+}
+function setVotes(id,delta){
+  var d=state.day,max=alive().length;
+  d.nominees.forEach(function(x){if(x.id===id)x.votes=Math.max(0,Math.min(max,x.votes+delta));});
+  commit();
+}
+async function evaluateVote(){
+  if(busy)return;
+  busy=true;
+  try{
+    var d=state.day;
+    snap();
+    var noms=d.nominees.map(function(x){return {p:byId(x.id),votes:x.votes};}).filter(function(x){return x.p&&!x.p.dead;});
+    var total=noms.reduce(function(a,x){return a+x.votes;},0);
+    var res;
+    if(!noms.length||total===0){
+      res={kind:'none',text:'Es gab keine gültigen Stimmen. Niemand wird gehängt.'};
+    }else{
+      var top=Math.max.apply(null,noms.map(function(x){return x.votes;}));
+      var tied=noms.filter(function(x){return x.votes===top;});
+      if(tied.length>1){
+        if(!d.runoff){
+          d.runoff=true;
+          d.nominees=tied.map(function(x){return {id:x.p.id,votes:0};});
+          var nm=joinDe(tied.map(function(x){return short(x.p);}));
+          log('Gleichstand zwischen '+nm+': Stichwahl.','vote');
+          commit();
+          await notice('Gleichstand','Gleichstand zwischen '+nm+' mit je '+top+' Stimmen. Es folgt eine Stichwahl nur zwischen diesen Spielern. Zähle die Stimmen neu.');
+          return;
+        }
+        res={kind:'none',text:'Wieder Gleichstand in der Stichwahl. Niemand wird gehängt.'};
+      }else{
+        var w=tied[0];
+        if(w.votes*2>total)res={kind:'hang',id:w.p.id,text:short(w.p)+' wurde gehängt ('+w.votes+' von '+total+' gültigen Stimmen).'};
+        else res={kind:'none',text:'Keine Mehrheit: '+short(w.p)+' hat nur '+w.votes+' von '+total+' gültigen Stimmen. Mehr als die Hälfte wäre nötig. Niemand wird gehängt.'};
+      }
+    }
+    collecting=[];
+    if(res.kind==='hang'){res.role=def(byId(res.id).role).label;await kill(res.id,'vote');}
+    res.deaths=collecting;
+    collecting=null;
+    d.evaluated=true;d.result=res;
+    log(res.text,res.kind==='hang'?'death':'vote');
+    commit();
+  }finally{busy=false;collecting=null;render();}
+}
+function proceedNight(){
+  if(busy)return;
+  snap();
+  state.night++;state.phase='night';state.step=0;state.nd={};state.day=null;
+  timerStop();
+  log('Nacht '+state.night+' beginnt.','phase');
+  commit();focusPhase();
+}
+function focusPhase(){
+  var c=$('phaseCard'),r=c.getBoundingClientRect();
+  if(r.top<64||r.top>window.innerHeight*0.8){try{c.scrollIntoView({block:'start'});}catch(e){}}
+}
+async function newRound(){
+  var ok=await confirmAsk('Neue Runde starten','Alle Rollen bleiben erhalten. Namen, Tote, Schutz und Verlauf werden geleert.','Neue Runde');
+  if(!ok)return;
+  snap();
+  state.players.forEach(function(p){p.dead=false;p.name='';p.prot=[];p.cause=null;p.diedNight=0;});
+  resetGameFlags();
+  commit();
+}
+function resetGameFlags(){
+  state.phase='setup';state.night=1;state.step=0;state.nd={};state.day=null;state.lovers=[null,null];state.knightWolf=null;
+  state.potions={heal:false,poison:false};state.alteHit=false;state.dismissOver=false;
+  state.prep={erz:false,karten:false,kreis:false};state.log=[];
+  timerStop();
+}
+async function resetAll(){
+  var ok=await confirmAsk('Alles zurücksetzen','Das Spiel wird auf die Standardbesetzung mit 16 Spielern zurückgesetzt. Eigene Rollen und Spieler gehen verloren.','Zurücksetzen',true);
+  if(!ok)return;
+  snap();
+  var reveal=state.reveal;
+  state=defaultState();state.reveal=reveal;
+  commit();
+}
+
+/* ---------- Timer ---------- */
+var timer={total:300,left:300,run:false,t:null,end:0};
+function fmt(s){var m=Math.floor(s/60),r=s%60;return m+':'+(r<10?'0':'')+r;}
+function updTimer(){
+  var e=$('tTime'),b=$('tBtn');
+  if(e){e.textContent=fmt(timer.left);e.classList.toggle('low',timer.left<=30&&(timer.run||timer.left===0));}
+  if(b){b.replaceChildren(ico(timer.run?'pause':'play',18),timer.run?'Pause':(timer.left<timer.total&&timer.left>0?'Weiter':'Start'));}
+}
+function timerTick(){
+  timer.left=Math.max(0,Math.round((timer.end-Date.now())/1000));
+  updTimer();
+  if(timer.left===0){timerStop();beep();}
+}
+function timerToggle(){
+  if(timer.run){timerStop();}
+  else{
+    if(timer.left<=0)timer.left=timer.total;
+    timer.end=Date.now()+timer.left*1000;timer.run=true;timer.t=setInterval(timerTick,250);
+  }
+  updTimer();
+}
+function timerStop(){clearInterval(timer.t);timer.run=false;}
+function timerReset(){timerStop();timer.left=timer.total;updTimer();}
+function timerAdd(s){
+  timer.total=Math.max(60,timer.total+s);
+  if(timer.run){timer.end+=s*1000;timerTick();}else{timer.left=timer.total;updTimer();}
+}
+function beep(){
+  try{
+    var C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+    var c=new C();
+    [0,0.35,0.7].forEach(function(t){
+      var o=c.createOscillator(),g=c.createGain();o.frequency.value=880;g.gain.value=0.15;
+      o.connect(g);g.connect(c.destination);o.start(c.currentTime+t);o.stop(c.currentTime+t+0.2);
+    });
+    if(navigator.vibrate)navigator.vibrate([200,100,200]);
+  }catch(e){}
+}
+
+/* ---------- Baukästen für die Anzeige ---------- */
+function script(parts){
+  return h('div',{class:'script'},h('span',{class:'lbl'},'Vorlesen'),parts.map(function(p){
+    return p[0]==='s'?h('p',{class:'say',text:p[1]}):h('p',{class:'do',text:p[1]});
+  }));
+}
+function note(kind,text){
+  return h('div',{class:'note '+kind},ico(kind==='warn'?'alert':kind==='dead'?'xc':kind==='ok'?'check':'info',18),h('span',null,text));
+}
+function field(label,control){return h('div',{class:'field'},h('span',{class:'flabel'},label),control);}
+function pSelect(o){
+  var s=h('select',{'data-fk':o.fk,'aria-label':o.label||'Spieler wählen',disabled:o.disabled});
+  s.append(h('option',{value:''},o.placeholder||'– bitte wählen –'));
+  (o.list||alive()).forEach(function(p){
+    var off=o.off&&o.off.indexOf(p.id)>-1;
+    s.append(h('option',{value:String(p.id),disabled:off},optLabel(p)+(off?' – nicht erlaubt':'')));
+  });
+  s.value=o.value==null?'':String(o.value);
+  s.addEventListener('change',function(){o.onchange(s.value===''?null:parseInt(s.value,10));});
+  return s;
+}
+function check(label,checked,onchange,o){
+  o=o||{};
+  var inp=h('input',{type:'checkbox','data-fk':o.fk,disabled:o.disabled,checked:checked});
+  inp.addEventListener('change',function(){onchange(inp.checked);});
+  return h('label',{class:'check'+(o.disabled?' off':'')},inp,h('span',{class:'box'}),
+    h('span',{class:'ctext'},label,o.sub?h('span',{class:'csub'},o.sub):null));
+}
+function head(kind,title,sub){
+  return h('div',{class:'pband band-'+kind},ico(kind==='night'?'moon':kind==='day'?'sun':'check',28),
+    h('div',null,h('h2',{text:title}),sub?h('p',{text:sub}):null));
+}
+
+/* ---------- Phase: Vorbereitung ---------- */
+function renderSetup(card){
+  var n=state.players.length,wolves=state.players.filter(isWolf).length;
+  var counts={};
+  state.players.forEach(function(p){var l=def(p.role).label;counts[l]=(counts[l]||0)+1;});
+  var summary=Object.keys(counts).map(function(l){return counts[l]+'× '+l;}).join(', ');
+  var body=h('div',{class:'pbody'},
+    h('p',{class:'lead',text:n+' Spieler, davon '+wolves+(wolves===1?' Werwolf':' Werwölfe')+'.'}),
+    h('p',{class:'muted small',text:summary}),
+    h('div',{class:'checks'},
+      check('Erzähler bestimmt',state.prep.erz,function(c){state.prep.erz=c;commit();},{fk:'p-erz'}),
+      check('Karten gemischt und verdeckt verteilt',state.prep.karten,function(c){state.prep.karten=c;commit();},{fk:'p-karten'}),
+      check('Alle sitzen im Kreis',state.prep.kreis,function(c){state.prep.kreis=c;commit();},{fk:'p-kreis',sub:'Wichtig für „links“ beim Rostigen Ritter.'})),
+    h('p',{class:'muted small',text:'Trage die Namen in der Spielerliste ein. Das ist optional, macht die Auswahl und die Ansagen aber klarer. Rollen, die nicht mitspielen, entfernst du dort mit dem Papierkorb.'}));
+  if(!wolves)body.append(note('warn','Es ist kein Werwolf im Spiel. Ändere eine Rolle oder füge einen Werwolf hinzu.'));
+  var go=h('button',{class:'btn',type:'button',disabled:!wolves||!n,onclick:startGame},'Nacht 1 beginnen',ico('next',18));
+  body.append(h('div',{class:'nav'},go));
+  card.append(head('setup','Spielvorbereitung','Vor Nacht 1'),body);
+}
+
+/* ---------- Phase: Nacht ---------- */
+function buildStep(st,last){
+  var n=state.night,nd=state.nd,nodes=[],valid=true,onNext=null,alt=null,label=last?'Nacht auswerten':'Weiter';
+  var title=st.t;
+  switch(st.k){
+  case 'start':{
+    title='Nacht '+n+' beginnt';
+    nodes.push(script([['s','„Es wird Nacht in Düsterwald. Alle schließen die Augen.“']]));
+    var kw=byId(state.knightWolf);
+    var info=[];
+    if(kw&&!kw.dead)info.push(note('warn','Rostiger Ritter: '+full(kw)+' stirbt in dieser Nacht an der Wundinfektion. Das wird beim Auswerten automatisch berücksichtigt.'));
+    if(info.length)nodes.push(h('div',{class:'notes'},info));
+    break;
+  }
+  case 'amor':{
+    title='Amor wählt die Verliebten';
+    nodes.push(script([['s','„Amor, wache auf. Zeige mir zwei Spieler, die sich verlieben.“'],['d','Der Erzähler tippt beide an.'],['s','„Amor, schlafe wieder ein.“']]));
+    var a=state.lovers[0],b=state.lovers[1];
+    nodes.push(field('Verliebter 1',pSelect({fk:'lv1',value:a,list:alive(),onchange:function(v){state.lovers[0]=v;commit();}})));
+    nodes.push(field('Verliebter 2',pSelect({fk:'lv2',value:b,list:alive(),onchange:function(v){state.lovers[1]=v;commit();}})));
+    if(a!=null&&a===b)nodes.push(note('warn','Die Verliebten müssen zwei verschiedene Spieler sein.'));
+    valid=a!=null&&b!=null&&a!==b;
+    alt={label:'Ohne Verliebte weiter',fn:function(){state.lovers=[null,null];state.step++;commit();}};
+    onNext=function(){log('Amor verliebt '+full(byId(a))+' und '+full(byId(b))+'.','info');};
+    break;
+  }
+  case 'lovers':{
+    title='Die Verliebten erkennen sich';
+    var la=byId(state.lovers[0]),lb=byId(state.lovers[1]);
+    nodes.push(script([['s','„Verliebte, wacht auf und erkennt euch.“'],['d','Berühre die beiden Verliebten an der Schulter.'],['s','„Verliebte, schlaft wieder ein.“']]));
+    if(la&&lb)nodes.push(note('info','Berühre jetzt: '+full(la)+' und '+full(lb)+'.'));
+    else nodes.push(note('info','Es wurden keine Verliebten gewählt. Du kannst diesen Schritt überspringen.'));
+    break;
+  }
+  case 'seher':{
+    var dead=roleGone('seher');
+    title='Seher';
+    nodes.push(script([['s','„Seher, wache auf. Zeige mir einen Spieler.“'],['d','Der Seher zeigt auf einen Spieler. Zeige ihm heimlich dessen Karte.'],['s','„Seher, schlafe wieder ein.“']]));
+    if(dead)nodes.push(note('warn','Der Seher ist tot. Lies den Text trotzdem vor und ignoriere die Auswahl (Täuschung).'));
+    else{
+      nodes.push(field('Gewählter Spieler',pSelect({fk:'seer',value:nd.seer,list:alive().filter(function(p){return p.role!=='seher';}),onchange:function(v){nd.seer=v;commit();}})));
+      var t=byId(nd.seer);
+      if(t)nodes.push(h('div',{class:'reveal'+(isWolf(t)?' wolf':'')},h('span',{class:'lbl'},'Zeige dem Seher diese Karte'),h('strong',{text:def(t.role).label}),h('span',{text:numOf(t)+'. '+short(t)})));
+      onNext=function(){var x=byId(nd.seer);if(x)log('Seher sieht '+full(x)+'.','info');};
+    }
+    break;
+  }
+  case 'leib':{
+    var dead2=roleGone('leib');
+    title='Leibwächter';
+    nodes.push(script([['s','„Leibwächter, wache auf. Wen beschützt du heute Nacht?“'],['d','Nicht denselben wie in der Vornacht.'],['s','„Leibwächter, schlafe wieder ein.“']]));
+    if(dead2)nodes.push(note('warn','Der Leibwächter ist tot. Lies den Text trotzdem vor und ignoriere die Auswahl (Täuschung).'));
+    else{
+      var prev=n>1?state.players.filter(function(p){return p.prot.indexOf(n-1)>-1;})[0]:null;
+      var curG=state.players.filter(function(p){return p.prot.indexOf(n)>-1;})[0];
+      if(prev&&!prev.dead)nodes.push(note('info','Gestern geschützt: '+short(prev)+'. Diese Person darf heute nicht erneut geschützt werden.'));
+      nodes.push(field('Geschützte Person',pSelect({fk:'guard',value:curG?curG.id:null,list:alive(),off:(prev&&!prev.dead)?[prev.id]:[],placeholder:'– niemanden –',onchange:setGuard})));
+      onNext=function(){var x=state.players.filter(function(p){return p.prot.indexOf(n)>-1;})[0];if(x)log('Leibwächter schützt '+full(x)+'.','info');};
+    }
+    break;
+  }
+  case 'custom':{
+    var cd=def(st.role),cdead=roleGone(st.role);
+    title=cd.label;
+    nodes.push(script([['s','„'+cd.label+', wache auf. …“'],['d','Führe die Fähigkeit der Rolle aus.'],['s','„'+cd.label+', schlafe wieder ein.“']]));
+    if(cdead)nodes.push(note('warn','Diese Rolle ist tot. Lies den Text trotzdem vor (Täuschung).'));
+    break;
+  }
+  case 'wolf':{
+    title='Werwölfe';
+    nodes.push(script([['s','„Werwölfe, wacht auf. Einigt euch lautlos auf ein Opfer.“'],['d','Der Erzähler merkt sich das Opfer.'],['s','„Werwölfe, schlaft wieder ein.“']]));
+    var ws=alive().filter(isWolf);
+    nodes.push(note('info','Lebende Werwölfe: '+(ws.map(function(p){return numOf(p)+'. '+short(p);}).join(', ')||'keine')+'.'));
+    nodes.push(field('Opfer der Werwölfe',pSelect({fk:'wolf',value:nd.wolf,list:alive(),placeholder:'– kein Opfer / uneinig –',onchange:function(v){nd.wolf=v;commit();}})));
+    onNext=function(){var x=byId(nd.wolf);log(x?'Werwölfe greifen '+full(x)+' an.':'Werwölfe wählen kein Opfer.','info');};
+    break;
+  }
+  case 'hexe':{
+    title='Hexe';
+    var witchDead=roleGone('hexe');
+    var v=byId(nd.wolf);if(v&&v.dead)v=null;
+    var prot=!!(v&&v.prot.indexOf(n)>-1);
+    var healFree=!state.potions.heal,poisonFree=!state.potions.poison;
+    var canHeal=!witchDead&&healFree&&!!v&&!prot;
+    var canPoison=!witchDead&&poisonFree;
+    nodes.push(script([['s','„Hexe, wache auf. Dieser Spieler wurde von den Werwölfen angegriffen. Willst du ihn heilen? Willst du jemanden vergiften?“'],['d','Der Erzähler zeigt das Opfer, die Hexe zeigt ihre Wahl.'],['s','„Hexe, schlafe wieder ein.“']]));
+    var hn=[];
+    if(witchDead)hn.push(note('warn','Die Hexe ist tot. Lies den Text trotzdem vor und ignoriere die Auswahl (Täuschung).'));
+    if(!v)hn.push(note('info','Niemand wurde von den Werwölfen angegriffen. Die Hexe sieht kein Opfer.'));
+    else if(prot)hn.push(note('warn','Der Leibwächter schützt '+short(v)+'. Zeige der Hexe kein Opfer. Heilen ist nicht nötig und der Heiltrank bleibt erhalten.'));
+    else{
+      hn.push(note('info','Zeige der Hexe: '+full(v)+' wurde angegriffen.'));
+      if(v.role==='alte'&&!state.alteHit)hn.push(note('warn','Der Alte überlebt den ersten Angriff ohnehin. Heilen wäre verschwendet.'));
+    }
+    nodes.push(h('div',{class:'notes'},hn));
+    nodes.push(check('Opfer heilen',!!nd.heal&&canHeal,function(c){nd.heal=c;nd.healFor=c&&v?v.id:null;commit();},{disabled:!canHeal,fk:'heal',sub:'Heiltrank: '+(healFree?'noch frei':'verbraucht')}));
+    nodes.push(check('Jemanden vergiften',!!nd.poisonOn&&canPoison,function(c){nd.poisonOn=c;if(!c)nd.poison=null;commit();},{disabled:!canPoison,fk:'poisonOn',sub:'Gifttrank: '+(poisonFree?'noch frei':'verbraucht')}));
+    if(nd.poisonOn&&canPoison)nodes.push(field('Gifttrank-Opfer',pSelect({fk:'poison',value:nd.poison,list:alive(),onchange:function(x){nd.poison=x;commit();}})));
+    valid=!(nd.poisonOn&&canPoison&&!byId(nd.poison));
+    break;
+  }
+  }
+  return {title:title,nodes:nodes,valid:valid,onNext:onNext,alt:alt,label:label};
+}
+function renderNight(card){
+  var vs=visibleSteps(),steps=vs.steps;
+  if(state.step>=steps.length)state.step=steps.length-1;
+  if(state.step<0)state.step=0;
+  var cur=steps[state.step],last=state.step===steps.length-1;
+  var st=buildStep(cur,last);
+  var ol=h('ol',{class:'stepper','aria-label':'Ablauf der Nacht'});
+  steps.forEach(function(s,i){
+    ol.append(h('li',{class:'stp'+(i===state.step?' cur':'')+(i<state.step?' done':''),'aria-current':i===state.step?'step':null},i<state.step?ico('check',14):null,s.t));
+  });
+  var body=h('div',{class:'pbody'},ol);
+  if(vs.skipped.length)body.append(h('p',{class:'muted small',text:'Übersprungen (tot, Rollen aufgedeckt): '+vs.skipped.map(function(s){return s.t;}).join(', ')+'.'}));
+  body.append(h('h3',{class:'stt',text:st.title}));
+  st.nodes.forEach(function(x){body.append(x);});
+  var nav=h('div',{class:'nav'});
+  if(state.step>0)nav.append(h('button',{class:'btn ghost',type:'button',onclick:function(){state.step--;commit();focusPhase();}},ico('back',18),'Zurück'));
+  if(st.alt)nav.append(h('button',{class:'btn ghost',type:'button',onclick:function(){st.alt.fn();focusPhase();}},st.alt.label));
+  nav.append(h('button',{class:'btn',type:'button',disabled:!st.valid||busy,onclick:async function(){
+    if(busy)return;
+    if(st.onNext)st.onNext();
+    if(last){await finishNight();}
+    else{state.step++;commit();focusPhase();}
+  }},st.label,ico(last?'check':'next',18)));
+  body.append(nav);
+  card.append(head('night','Nacht '+state.night,'Schritt '+(state.step+1)+' von '+steps.length),body);
+}
+
+/* ---------- Phase: Tag ---------- */
+function announce(deaths){
+  if(!deaths.length)return '„Niemand ist gestorben.“';
+  var names=deaths.map(function(x){var p=byId(x.id);return p?short(p)+(state.reveal?' ('+def(p.role).label+')':''):'';}).filter(Boolean);
+  return '„Heute Nacht ist gestorben: '+joinDe(names)+'.“';
+}
+function secH(n,t){return h('h3',{class:'sec'},h('span',{class:'secn',text:String(n)}),t);}
+function renderDay(card){
+  var d=state.day;
+  if(!d){d=state.day={deaths:[],report:[],nominees:[],runoff:false,evaluated:false,result:null};}
+  var body=h('div',{class:'pbody'});
+
+  body.append(secH(1,'Ergebnis der Nacht'));
+  var ns=[];
+  d.deaths.forEach(function(x){var p=byId(x.id);if(p)ns.push(note('dead',full(p)+' '+CAUSE[x.cause]+'.'));});
+  d.report.forEach(function(r){ns.push(note(r.kind,r.text));});
+  if(!ns.length)ns.push(note('ok','Niemand ist gestorben.'));
+  body.append(h('div',{class:'notes'},ns));
+  var parts=[['s','„Es wird Tag in Düsterwald. Alle wachen auf.“'],['s',announce(d.deaths)]];
+  if(d.deaths.length&&state.reveal)parts.push(['d','Jedes Opfer deckt seine Karte auf.']);
+  body.append(script(parts));
+
+  body.append(secH(2,'Diskussion'));
+  body.append(script([['s','„Das Dorf diskutiert. Wer ist ein Werwolf?“'],['d','Alle dürfen bluffen. Es werden Spieler nominiert.']]));
+  body.append(h('div',{class:'timer'},
+    h('span',{class:'time',id:'tTime',role:'timer','aria-label':'Diskussionszeit'},fmt(timer.left)),
+    h('button',{class:'btn',id:'tBtn',type:'button',onclick:timerToggle}),
+    h('button',{class:'ibtn',type:'button','aria-label':'Zeit zurücksetzen',onclick:timerReset},ico('reset',18)),
+    h('button',{class:'ibtn',type:'button','aria-label':'Eine Minute weniger',onclick:function(){timerAdd(-60);}},ico('minus',18),'1 Min'),
+    h('button',{class:'ibtn',type:'button','aria-label':'Eine Minute mehr',onclick:function(){timerAdd(60);}},ico('plus',18),'1 Min')));
+
+  body.append(secH(3,d.runoff?'Stichwahl':'Abstimmung'));
+  var al=alive().length,total=0;
+  d.nominees.forEach(function(x){total+=x.votes;});
+  body.append(h('p',{class:'muted small',text:'Gehängt wird, wer mehr als die Hälfte der gültigen Stimmen erhält. Enthaltungen zählen nicht. Bei Gleichstand gibt es eine Stichwahl.'}));
+  body.append(h('div',{class:'vinfo'},
+    h('span',null,'Lebende: ',h('b',{text:String(al)})),
+    h('span',null,'Gültige Stimmen: ',h('b',{text:String(total)})),
+    h('span',null,'Enthaltungen: ',h('b',{text:String(Math.max(0,al-total))}))));
+  if(d.runoff&&!d.evaluated)body.append(note('warn','Stichwahl: Es wählt nur zwischen den Spielern mit Gleichstand. Zähle die Stimmen neu.'));
+  if(!d.runoff&&!d.evaluated){
+    body.append(h('span',{class:'flabel',text:'Nominieren (antippen)'}));
+    var chips=h('div',{class:'pchips'});
+    alive().forEach(function(p){
+      var on=d.nominees.some(function(x){return x.id===p.id;});
+      chips.append(h('button',{class:'pchip',type:'button','aria-pressed':on?'true':'false','data-fk':'nom'+p.id,onclick:function(){toggleNominee(p.id);}},numOf(p)+' '+short(p)));
+    });
+    body.append(chips);
+  }
+  if(d.nominees.length){
+    var vl=h('div',{class:'vlist'});
+    d.nominees.forEach(function(x){
+      var p=byId(x.id);if(!p)return;
+      vl.append(h('div',{class:'vrow'},
+        h('span',{class:'vname',text:numOf(p)+'. '+short(p)}),
+        h('div',{class:'stp2'},
+          h('button',{class:'sbtn',type:'button','data-fk':'vm'+p.id,'aria-label':'Eine Stimme weniger für '+short(p),disabled:d.evaluated||x.votes<=0,onclick:function(){setVotes(p.id,-1);}},ico('minus',18)),
+          h('span',{class:'vnum','aria-label':x.votes+' Stimmen',text:String(x.votes)}),
+          h('button',{class:'sbtn',type:'button','data-fk':'vp'+p.id,'aria-label':'Eine Stimme mehr für '+short(p),disabled:d.evaluated||x.votes>=al,onclick:function(){setVotes(p.id,1);}},ico('plus',18)))));
+    });
+    body.append(vl);
+  }
+
+  if(!d.evaluated){
+    body.append(h('div',{class:'nav'},
+      h('button',{class:'btn ghost',type:'button',onclick:proceedNight},'Niemand hängen, weiter zu Nacht '+(state.night+1)),
+      h('button',{class:'btn',type:'button',disabled:busy||!d.nominees.length,onclick:evaluateVote},'Abstimmung auswerten',ico('check',18))));
+  }else{
+    var r=d.result,rn=[];
+    rn.push(note(r.kind==='hang'?'dead':'ok',r.text));
+    if(r.kind==='hang')rn.push(note('info','Nur für dich: '+short(byId(r.id)||{name:'',role:'dorf'})+' war '+r.role+'.'+(state.reveal?' Die Karte wird aufgedeckt.':' Die Karte bleibt geheim.')));
+    (r.deaths||[]).forEach(function(x){if(x.cause!=='vote'){var p=byId(x.id);if(p)rn.push(note('dead',full(p)+' '+CAUSE[x.cause]+'.'));}});
+    body.append(secH(4,'Ergebnis der Abstimmung'));
+    body.append(h('div',{class:'notes'},rn));
+    body.append(h('div',{class:'nav'},h('button',{class:'btn',type:'button',disabled:busy,onclick:proceedNight},'Weiter zu Nacht '+(state.night+1),ico('next',18))));
+  }
+  card.append(head('day','Tag '+state.night,d.evaluated?'Abstimmung ausgewertet':'Diskussion und Abstimmung'),body);
+}
+
+function renderPhase(){
+  var card=$('phaseCard');
+  var ae=document.activeElement,fk=(ae&&ae.getAttribute)?ae.getAttribute('data-fk'):null;
+  card.replaceChildren();
+  if(state.phase==='setup')renderSetup(card);
+  else if(state.phase==='night')renderNight(card);
+  else renderDay(card);
+  if(fk){var t=card.querySelector('[data-fk="'+fk+'"]');if(t&&!t.disabled){try{t.focus({preventScroll:true});}catch(e){}}}
+  if(state.phase==='day')updTimer();
+}
+
+/* ---------- Spielerliste ---------- */
+var rowRefs={},rowSig='';
+function sigNow(){return state.players.map(function(p){return p.id;}).join(',')+'|'+state.custom.map(function(c){return c.id+':'+c.label;}).join(',');}
+function fillRoleSelect(sel){
+  sel.replaceChildren();
+  allRoleIds().forEach(function(r){sel.append(h('option',{value:r},def(r).label));});
+}
+function buildPlayers(){
+  var ul=$('plist');
+  ul.replaceChildren();rowRefs={};
+  var nums=$('phnums');nums.replaceChildren();
+  for(var k=1;k<=NIGHTS;k++)nums.append(h('span',{text:String(k)}));
+  state.players.forEach(function(p,i){
+    var id=p.id,num=i+1;
+    var sel=h('select',{class:'role','aria-label':'Rolle von Spieler '+num});
+    fillRoleSelect(sel);
+    var moon=h('span',{class:'moon',role:'img','aria-label':'wacht nachts auf'},ico('moon',14));
+    var name=h('input',{type:'text',class:'name',autocomplete:'off',placeholder:'Name',maxlength:'40','aria-label':'Name von Spieler '+num});
+    var dead=h('button',{class:'dead',type:'button','aria-label':'Spieler '+num+' ist tot'},'Tot');
+    var del=h('button',{class:'del',type:'button','aria-label':'Spieler '+num+' entfernen'},ico('trash',18));
+    var chips=h('div',{class:'chips'}),chipEls=[];
+    for(var j=1;j<=NIGHTS;j++){
+      (function(nn){
+        var c=h('button',{class:'chip',type:'button','aria-label':'Spieler '+num+' in Nacht '+nn+' geschützt',text:String(nn)});
+        c.addEventListener('click',function(){var pl=byId(id);if(pl)setProt(pl,nn);});
+        chips.append(c);chipEls.push(c);
+      })(j);
+    }
+    var tags=h('div',{class:'ptags'});
+    var li=h('li',{class:'prow'},
+      h('span',{class:'nr',text:String(num)}),
+      h('div',{class:'rolecell'},sel,moon),
+      name,dead,del,
+      h('div',{class:'prot'},h('span',{class:'plabel'},'Geschützt in Nacht'),chips),
+      tags);
+    sel.addEventListener('change',function(){var pl=byId(id);if(pl){pl.role=sel.value;commit();}});
+    name.addEventListener('input',function(){var pl=byId(id);if(pl){pl.name=name.value;commit();}});
+    dead.addEventListener('click',async function(){
+      var pl=byId(id);if(!pl||busy)return;
+      busy=true;
+      try{snap();if(!pl.dead)await kill(id,'manual');else{pl.dead=false;pl.cause=null;commit();}}
+      finally{busy=false;render();}
+    });
+    del.addEventListener('click',async function(){
+      var pl=byId(id);if(!pl)return;
+      var ok=await confirmAsk('Spieler entfernen','Spieler '+numOf(pl)+' ('+def(pl.role).label+(pl.name.trim()?', '+pl.name.trim():'')+') wirklich aus der Liste entfernen?','Entfernen',true);
+      if(!ok)return;
+      snap();removePlayer(id);commit();
+    });
+    ul.append(li);
+    rowRefs[id]={li:li,sel:sel,name:name,moon:moon,dead:dead,chips:chipEls,tags:tags};
+  });
+  var as=$('addRole'),keep=as.value;fillRoleSelect(as);if(keep)as.value=keep;
+}
+function removePlayer(id){
+  state.players=state.players.filter(function(p){return p.id!==id;});
+  state.lovers=state.lovers.map(function(x){return x===id?null:x;});
+  if(state.knightWolf===id)state.knightWolf=null;
+  ['seer','wolf','poison','healFor'].forEach(function(k){if(state.nd[k]===id)state.nd[k]=null;});
+  if(state.day)state.day.nominees=state.day.nominees.filter(function(x){return x.id!==id;});
+}
+function tagsFor(p){
+  var t=[];
+  if(state.lovers.indexOf(p.id)>-1)t.push(['heart','Verliebt']);
+  if(state.knightWolf===p.id&&!p.dead)t.push(['flask','Stirbt in der nächsten Nacht']);
+  if(p.role==='alte'&&state.alteHit&&!p.dead)t.push(['shield','Extraleben verbraucht']);
+  if(p.dead&&p.cause)t.push(['xc',SHORTC[p.cause]+(p.diedNight?' · Nacht '+p.diedNight:'')]);
+  return t;
+}
+function updatePlayers(){
+  var night=state.night;
+  state.players.forEach(function(p,i){
+    var r=rowRefs[p.id];if(!r)return;
+    r.li.classList.toggle('is-dead',p.dead);
+    r.li.classList.toggle('is-wolf',isWolf(p));
+    if(r.sel.value!==p.role)r.sel.value=p.role;
+    if(document.activeElement!==r.name&&r.name.value!==p.name)r.name.value=p.name;
+    r.moon.hidden=!def(p.role).wake;
+    r.dead.setAttribute('aria-pressed',p.dead?'true':'false');
+    r.chips.forEach(function(c,j){
+      var nn=j+1,on=p.prot.indexOf(nn)>-1;
+      c.setAttribute('aria-pressed',on?'true':'false');
+      c.classList.toggle('now',nn===night&&state.phase!=='setup');
+      c.classList.toggle('warn',on&&(p.prot.indexOf(nn-1)>-1||p.prot.indexOf(nn+1)>-1));
+    });
+    r.tags.replaceChildren();
+    tagsFor(p).forEach(function(t){r.tags.append(h('span',{class:'ptag'},ico(t[0],14),t[1]));});
+  });
+  var nums=$('phnums').children;
+  for(var n=0;n<nums.length;n++)nums[n].classList.toggle('now',n+1===night&&state.phase!=='setup');
+  $('plCount').textContent=state.players.length+' Spieler';
+}
+function syncPlayers(){
+  var s=sigNow();
+  if(s!==rowSig){rowSig=s;buildPlayers();}
+  updatePlayers();
+}
+
+/* ---------- Statusleiste, Banner, Merker, Verlauf ---------- */
+function renderBar(){
+  var ph=state.phase,name=ph==='setup'?'Vorbereitung':ph==='night'?'Nacht '+state.night:'Tag '+state.night;
+  $('phName').textContent=name;
+  var pi=$('phIcon');pi.replaceChildren(ico(ph==='night'?'moon':ph==='day'?'sun':'check',26));
+  var al=alive(),w=al.filter(isWolf).length;
+  $('cAlive').textContent=al.length;$('cWolf').textContent=w;$('cVillage').textContent=al.length-w;
+  $('undo').disabled=busy||!hist.length;
+}
+function renderBanner(){
+  var b=$('banner'),over=evalOver();
+  b.replaceChildren();
+  if(!over||state.dismissOver){b.hidden=true;return;}
+  b.hidden=false;
+  b.append(h('div',null,h('h2',{text:over.title})),h('p',{text:over.text}),
+    h('button',{class:'btn',type:'button',onclick:newRound},'Neue Runde'),
+    h('button',{class:'btn ghost',type:'button',onclick:function(){state.dismissOver=true;commit();}},'Weiterspielen'));
+}
+function fillSel(sel,list,value,placeholder){
+  var cur=value==null?'':String(value);
+  sel.replaceChildren(h('option',{value:''},placeholder));
+  list.forEach(function(p){sel.append(h('option',{value:String(p.id)},optLabel(p)));});
+  sel.value=cur;
+}
+var merkerBuilt=false;
+function buildMerker(){
+  var m=$('merkerList');
+  [['heil','Heiltrank verbraucht (Hexe)',function(){return state.potions.heal;},function(v){state.potions.heal=v;}],
+   ['gift','Gifttrank verbraucht (Hexe)',function(){return state.potions.poison;},function(v){state.potions.poison=v;}],
+   ['alte','Der Alte hat den 1. Angriff überlebt',function(){return state.alteHit;},function(v){state.alteHit=v;}]].forEach(function(x){
+    var inp=h('input',{type:'checkbox',id:'mk-'+x[0]});
+    inp.addEventListener('change',function(){x[3](inp.checked);commit();});
+    m.append(h('label',{class:'check'},inp,h('span',{class:'box'}),h('span',{class:'ctext',text:x[1]})));
+    x.push(inp);
+  });
+  merkerBuilt=true;
+  $('loverA').addEventListener('change',function(){state.lovers[0]=this.value===''?null:parseInt(this.value,10);commit();});
+  $('loverB').addEventListener('change',function(){state.lovers[1]=this.value===''?null:parseInt(this.value,10);commit();});
+  $('knightSel').addEventListener('change',function(){state.knightWolf=this.value===''?null:parseInt(this.value,10);commit();});
+}
+function renderMerker(){
+  $('mk-heil').checked=!!state.potions.heal;
+  $('mk-gift').checked=!!state.potions.poison;
+  $('mk-alte').checked=!!state.alteHit;
+  var ae=document.activeElement;
+  if(ae!==$('loverA'))fillSel($('loverA'),state.players,state.lovers[0],'– Partner 1 –');
+  if(ae!==$('loverB'))fillSel($('loverB'),state.players,state.lovers[1],'– Partner 2 –');
+  if(ae!==$('knightSel'))fillSel($('knightSel'),state.players.filter(isWolf),state.knightWolf,'– keiner –');
+}
+function renderLog(){
+  var ol=$('logList');ol.replaceChildren();
+  $('logEmpty').hidden=state.log.length>0;
+  state.log.slice().reverse().forEach(function(e){
+    var lbl=e.ph==='night'?'N'+e.n:e.ph==='day'?'T'+e.n:'Start';
+    ol.append(h('li',{class:e.k==='death'?'death':''},h('span',{class:'ll',text:lbl}),h('span',{text:e.t})));
+  });
+}
+function renderSettings(){
+  $('revealCb').checked=!!state.reveal;
+  $('revealHint').textContent=state.reveal
+    ?'Ja: Tote Rollen werden im Ablauf übersprungen, die Karten werden aufgedeckt.'
+    :'Nein: Tote Rollen werden trotzdem aufgerufen, damit niemand etwas verrät (Täuschung).';
+}
+function render(){
+  renderBar();renderBanner();syncPlayers();renderPhase();renderMerker();renderLog();renderSettings();
+}
+
+/* ---------- Design: hell / dunkel ---------- */
+function applyTheme(t){
+  var r=document.documentElement;
+  if(t)r.setAttribute('data-theme',t);else r.removeAttribute('data-theme');
+}
+function effectiveDark(){
+  var t=document.documentElement.getAttribute('data-theme');
+  if(t)return t==='dark';
+  return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
+function initTheme(){
+  var t=null;try{t=localStorage.getItem(TKEY);}catch(e){}
+  if(t==='light'||t==='dark')applyTheme(t);
+  var b=$('theme');
+  function paint(){b.replaceChildren(ico(effectiveDark()?'sun':'moon',20));}
+  paint();
+  b.addEventListener('click',function(){
+    var next=effectiveDark()?'light':'dark';
+    applyTheme(next);try{localStorage.setItem(TKEY,next);}catch(e){}
+    paint();
+  });
+}
+
+/* ---------- Start ---------- */
+function init(){
+  initTheme();
+  $('undoIco').replaceChildren(ico('undo',18));
+  buildMerker();
+  $('undo').addEventListener('click',undo);
+  $('revealCb').addEventListener('change',function(){state.reveal=this.checked;commit();});
+  $('newRound').addEventListener('click',newRound);
+  $('resetAll').addEventListener('click',resetAll);
+  $('addPlayer').addEventListener('click',function(){
+    snap();
+    state.players.push({id:state.nextId++,role:$('addRole').value||'dorf',name:'',dead:false,prot:[],cause:null,diedNight:0});
+    commit();
+  });
+  $('cAdd').addEventListener('click',function(){
+    var nm=$('cName').value.trim();
+    if(!nm){$('cName').focus();return;}
+    snap();
+    var id='c'+(state.nextId++);
+    state.custom.push({id:id,label:nm.slice(0,30),wake:$('cWake').checked,wolf:$('cWolf').checked});
+    state.players.push({id:state.nextId++,role:id,name:'',dead:false,prot:[],cause:null,diedNight:0});
+    $('cName').value='';$('cWake').checked=false;$('cWolf').checked=false;
+    commit();
+  });
+  render();
+  try{
+    if(window.claude&&window.claude.use){
+      window.claude.use('db').then(function(db){
+        if(!db){setSync('local');return;}
+        ref=db.doc('game/v2');
+        ref.onSnapshot(function(snap){
+          if(snap.metadata&&snap.metadata.hasPendingWrites)return;
+          setSync('db');
+          if(!snap.exists){if(state.rev>0)scheduleRemote();return;}
+          var remote=normalize(clone(snap.data()));
+          if(!remote){scheduleRemote();return;}
+          if(remote.rev>state.rev&&!busy){state=remote;persistLocal();render();}
+          else if(remote.rev<state.rev){scheduleRemote();}
+        },function(){setSync('local');});
+      }).catch(function(){setSync('local');});
+    }else{setSync('local');}
+  }catch(e){setSync('local');}
+}
+init();
+})();
+</script>
+
+</body></html>
